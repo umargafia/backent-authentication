@@ -5,6 +5,7 @@ const User = require('./../models/userModel');
 const catchAsync = require('./../utils/catchAsync');
 const AppError = require('./../utils/appError');
 const sendEmail = require('./../utils/email');
+const validator = require('validator');
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -39,8 +40,37 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = catchAsync(async (req, res, next) => {
-  if (User.findOne({ email: req.body.email })) {
-    return next(new AppError('Email Already exist', 400));
+  // Extract signup data from request body
+  const { name, email, password, passwordConfirm } = req.body;
+
+  // Check if email already exists
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    return next(new AppError('Email already exists', 400));
+  }
+
+  // Perform validation checks
+  if (!name) {
+    return next(new AppError('Name is required', 400));
+  }
+  if (!email) {
+    return next(new AppError('Email is required', 400));
+  } else if (!validator.isEmail(email)) {
+    return next(new AppError('Invalid email address', 400));
+  }
+  if (!password) {
+    return next(new AppError('Password is required', 400));
+  } else if (password.length < 8) {
+    return next(
+      new AppError('Password must be at least 8 characters long', 400)
+    );
+  }
+  if (!passwordConfirm) {
+    return next(new AppError('Password confirmation is required', 400));
+  } else if (password !== passwordConfirm) {
+    return next(
+      new AppError('Password confirmation does not match password', 400)
+    );
   }
 
   const newUser = await User.create({
