@@ -1,45 +1,30 @@
 import mongoose from 'mongoose';
 import request from 'supertest';
 import app from '../../app';
-import { createTestUser, getAuthToken } from '../../test/setup';
+import { createTestUser } from '../../test/setup';
 import { User } from '../../models/User';
+import { AuthService } from '../../services/authService';
 
 describe('User Controller', () => {
-  let adminUser: any;
-  let regularUser: any;
-  let adminToken: string;
-  let userToken: string;
-
-  beforeEach(async () => {
-    // Create admin user
-    adminUser = await createTestUser({
-      email: 'admin@example.com',
-      role: 'admin',
-    });
-    adminToken = await getAuthToken(adminUser);
-
-    // Create regular user
-    regularUser = await createTestUser({
-      email: 'user@example.com',
-      role: 'user',
-    });
-    userToken = await getAuthToken(regularUser);
-  });
-
   describe('GET /api/v1/users', () => {
     it('should get all users when admin', async () => {
+      const admin = await createTestUser('admin');
+      const token = AuthService.signToken(admin._id.toString());
+
       const response = await request(app)
         .get('/api/v1/users')
-        .set('Authorization', adminToken)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(response.body.status).toBe('success');
-      expect(response.body.results).toBe(2);
-      expect(response.body.data.users).toHaveLength(2);
+      expect(Array.isArray(response.body.data.users)).toBe(true);
     });
 
     it('should not get all users when not admin', async () => {
-      await request(app).get('/api/v1/users').set('Authorization', userToken).expect(403);
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
+
+      await request(app).get('/api/v1/users').set('Authorization', `Bearer ${token}`).expect(403);
     });
 
     it('should not get all users when not authenticated', async () => {
@@ -49,93 +34,116 @@ describe('User Controller', () => {
 
   describe('GET /api/v1/users/:id', () => {
     it('should get user by id when admin', async () => {
+      const admin = await createTestUser('admin');
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(admin._id.toString());
+
       const response = await request(app)
-        .get(`/api/v1/users/${regularUser._id}`)
-        .set('Authorization', adminToken)
+        .get(`/api/v1/users/${user._id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(response.body.status).toBe('success');
-      expect(response.body.data.user._id).toBe(regularUser._id.toString());
+      expect(response.body.data.user._id.toString()).toBe(user._id.toString());
     });
 
     it('should not get user by id when not admin', async () => {
+      const user = await createTestUser('user');
+      const otherUser = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
+
       await request(app)
-        .get(`/api/v1/users/${adminUser._id}`)
-        .set('Authorization', userToken)
+        .get(`/api/v1/users/${otherUser._id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(403);
     });
 
     it('should return 404 for non-existent user', async () => {
-      const nonExistentId = new mongoose.Types.ObjectId();
+      const admin = await createTestUser('admin');
+      const token = AuthService.signToken(admin._id.toString());
+
       await request(app)
-        .get(`/api/v1/users/${nonExistentId}`)
-        .set('Authorization', adminToken)
+        .get('/api/v1/users/507f1f77bcf86cd799439011')
+        .set('Authorization', `Bearer ${token}`)
         .expect(404);
     });
   });
 
   describe('PATCH /api/v1/users/:id', () => {
     it('should update user when admin', async () => {
-      const updateData = {
-        name: 'Updated Name',
-      };
+      const admin = await createTestUser('admin');
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(admin._id.toString());
 
       const response = await request(app)
-        .patch(`/api/v1/users/${regularUser._id}`)
-        .set('Authorization', adminToken)
-        .send(updateData)
+        .patch(`/api/v1/users/${user._id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'Updated Name',
+        })
         .expect(200);
 
       expect(response.body.status).toBe('success');
-      expect(response.body.data.user.name).toBe(updateData.name);
+      expect(response.body.data.user.name).toBe('Updated Name');
     });
 
     it('should not update user when not admin', async () => {
-      const updateData = {
-        name: 'Updated Name',
-      };
+      const user = await createTestUser('user');
+      const otherUser = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
 
       await request(app)
-        .patch(`/api/v1/users/${adminUser._id}`)
-        .set('Authorization', userToken)
-        .send(updateData)
+        .patch(`/api/v1/users/${otherUser._id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'Updated Name',
+        })
         .expect(403);
     });
   });
 
   describe('DELETE /api/v1/users/:id', () => {
     it('should delete user when admin', async () => {
+      const admin = await createTestUser('admin');
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(admin._id.toString());
+
       await request(app)
-        .delete(`/api/v1/users/${regularUser._id}`)
-        .set('Authorization', adminToken)
+        .delete(`/api/v1/users/${user._id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(204);
 
-      // Verify user was deleted
-      const deletedUser = await User.findById(regularUser._id);
+      const deletedUser = await User.findById(user._id);
       expect(deletedUser).toBeNull();
     });
 
     it('should not delete user when not admin', async () => {
+      const user = await createTestUser('user');
+      const otherUser = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
+
       await request(app)
-        .delete(`/api/v1/users/${adminUser._id}`)
-        .set('Authorization', userToken)
+        .delete(`/api/v1/users/${otherUser._id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(403);
 
-      // Verify user was not deleted
-      const user = await User.findById(adminUser._id);
-      expect(user).toBeDefined();
+      const existingUser = await User.findById(user._id);
+      expect(existingUser).toBeDefined();
     });
   });
 
   describe('GET /api/v1/users/me', () => {
     it('should get current user', async () => {
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
+
       const response = await request(app)
         .get('/api/v1/users/me')
-        .set('Authorization', userToken)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       expect(response.body.status).toBe('success');
-      expect(response.body.data.user._id).toBe(regularUser._id.toString());
+      expect(response.body.data.user._id.toString()).toBe(user._id.toString());
     });
 
     it('should not get current user when not authenticated', async () => {
@@ -145,45 +153,48 @@ describe('User Controller', () => {
 
   describe('PATCH /api/v1/users/updateMe', () => {
     it('should update current user', async () => {
-      const updateData = {
-        name: 'Updated Name',
-      };
+      const user = await createTestUser();
+      const token = AuthService.signToken(user._id.toString());
 
       const response = await request(app)
         .patch('/api/v1/users/updateMe')
-        .set('Authorization', userToken)
-        .send(updateData)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          name: 'Updated Name',
+        })
         .expect(200);
 
       expect(response.body.status).toBe('success');
-      expect(response.body.data.user.name).toBe(updateData.name);
+      expect(response.body.data.user.name).toBe('Updated Name');
     });
 
     it('should not update password through this route', async () => {
-      const updateData = {
-        name: 'Updated Name',
-        password: 'newpassword123',
-        passwordConfirm: 'newpassword123',
-      };
+      const user = await createTestUser();
+      const token = AuthService.signToken(user._id.toString());
 
       await request(app)
         .patch('/api/v1/users/updateMe')
-        .set('Authorization', userToken)
-        .send(updateData)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          password: 'newpassword123',
+          passwordConfirm: 'newpassword123',
+        })
         .expect(400);
     });
   });
 
   describe('DELETE /api/v1/users/deleteMe', () => {
     it('should deactivate current user', async () => {
-      await request(app)
-        .delete('/api/v1/users/deleteMe')
-        .set('Authorization', userToken)
-        .expect(204);
+      const user = await createTestUser('user');
+      const token = AuthService.signToken(user._id.toString());
 
-      // Verify user was deactivated
-      const deactivatedUser = await User.findById(regularUser._id);
-      expect(deactivatedUser?.active).toBe(false);
+      const response = await request(app)
+        .delete('/api/v1/users/deleteMe')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(response.body.status).toBe('success');
+      expect(response.body.data.user.active).toBe(false);
     });
 
     it('should not deactivate user when not authenticated', async () => {

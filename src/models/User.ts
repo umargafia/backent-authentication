@@ -1,9 +1,10 @@
-import { Schema, model, Document, Model, Query, QueryWithHelpers } from 'mongoose';
+import { Schema, model, Document, Model, Query, QueryWithHelpers, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import validator from 'validator';
 
 export interface IUser extends Document {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   photo?: string;
@@ -105,8 +106,8 @@ userSchema.methods.correctPassword = async function (
 
 userSchema.methods.changedPasswordAfter = function (JWTTimestamp: number): boolean {
   if (this.passwordChangedAt) {
-    const changedTimestamp = parseInt((this.passwordChangedAt.getTime() / 1000).toString(), 10);
-    return JWTTimestamp < changedTimestamp;
+    const changedTimestamp = Math.floor(this.passwordChangedAt.getTime() / 1000);
+    return changedTimestamp > JWTTimestamp;
   }
   return false;
 };

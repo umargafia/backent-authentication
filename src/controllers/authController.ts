@@ -5,16 +5,24 @@ import { AppError } from '../utils/AppError';
 import { catchAsync } from '../utils/catchAsync';
 import crypto from 'crypto';
 import { env } from '../config/env';
+import mongoose from 'mongoose';
 
 export const signup = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  const newUser = await User.create({
-    name: req.body.name,
-    email: req.body.email,
-    password: req.body.password,
-    passwordConfirm: req.body.passwordConfirm,
-  });
+  try {
+    const newUser = await User.create({
+      name: req.body.name,
+      email: req.body.email,
+      password: req.body.password,
+      passwordConfirm: req.body.passwordConfirm,
+    });
 
-  AuthService.createSendToken(newUser, 201, res);
+    AuthService.createSendToken(newUser, 201, res);
+  } catch (error) {
+    if (error instanceof mongoose.Error.ValidationError) {
+      return next(new AppError(error.message, 400));
+    }
+    next(error);
+  }
 });
 
 export const login = catchAsync(async (req: Request, res: Response, next: NextFunction) => {

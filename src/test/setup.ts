@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { env } from '../config/env';
 import { User } from '../models/User';
+import { AuthService } from '../services/authService';
 
 let mongoServer: MongoMemoryServer | null = null;
 
@@ -52,20 +53,20 @@ beforeEach(async () => {
 });
 
 // Helper function to create a test user
-export const createTestUser = async (userData = {}) => {
-  const defaultUser = {
+export const createTestUser = async (role: string = 'user') => {
+  const timestamp = Date.now();
+  const user = await User.create({
     name: 'Test User',
-    email: 'test@example.com',
+    email: `test${timestamp}@example.com`,
     password: 'password123',
     passwordConfirm: 'password123',
-    ...userData,
-  };
-
-  return await User.create(defaultUser);
+    role,
+  });
+  return user;
 };
 
 // Helper function to get auth token
 export const getAuthToken = async (user: any) => {
-  const token = user.generateAuthToken();
+  const token = AuthService.signToken(user._id.toString());
   return `Bearer ${token}`;
 };

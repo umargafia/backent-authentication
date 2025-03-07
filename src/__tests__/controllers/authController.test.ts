@@ -2,6 +2,7 @@ import request from 'supertest';
 import app from '../../app';
 import { createTestUser, getAuthToken } from '../../test/setup';
 import { User } from '../../models/User';
+import { AuthService } from '../../services/authService';
 
 describe('Auth Controller', () => {
   describe('POST /api/v1/users/signup', () => {
@@ -23,14 +24,18 @@ describe('Auth Controller', () => {
     });
 
     it('should not create user with invalid data', async () => {
-      const invalidData = {
-        name: 'John Doe',
-        email: 'invalid-email',
-        password: 'password123',
-        passwordConfirm: 'password123',
-      };
+      const response = await request(app)
+        .post('/api/v1/users/signup')
+        .send({
+          name: 'Test User',
+          email: 'invalid-email',
+          password: 'short',
+          passwordConfirm: 'different',
+        })
+        .expect(400);
 
-      await request(app).post('/api/v1/users/signup').send(invalidData).expect(400);
+      expect(response.body.status).toBe('fail');
+      expect(response.body.message).toBeDefined();
     });
   });
 
@@ -98,7 +103,7 @@ describe('Auth Controller', () => {
     it('should reset password with valid token', async () => {
       const user = await createTestUser();
       const resetToken = user.createPasswordResetToken();
-      await user.save();
+      await user.save({ validateBeforeSave: false });
 
       const response = await request(app)
         .patch(`/api/v1/users/resetPassword/${resetToken}`)
@@ -112,12 +117,12 @@ describe('Auth Controller', () => {
       expect(response.body.token).toBeDefined();
 
       // Verify password was changed
-      const updatedUser = await User.findOne({ email: user.email });
-      const isPasswordCorrect = await updatedUser?.correctPassword(
+      const updatedUser = await User.findById(user._id).select('+password');
+      const isPasswordValid = await updatedUser?.correctPassword(
         'newpassword123',
         updatedUser.password
       );
-      expect(isPasswordCorrect).toBe(true);
+      expect(isPasswordValid).toBe(true);
     });
 
     it('should not reset password with invalid token', async () => {
@@ -134,11 +139,11 @@ describe('Auth Controller', () => {
   describe('PATCH /api/v1/users/updateMyPassword', () => {
     it('should update password when authenticated', async () => {
       const user = await createTestUser();
-      const token = await getAuthToken(user);
+      const token = AuthService.signToken(user._id.toString());
 
       const response = await request(app)
         .patch('/api/v1/users/updateMyPassword')
-        .set('Authorization', token)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'password123',
           password: 'newpassword123',
@@ -150,21 +155,21 @@ describe('Auth Controller', () => {
       expect(response.body.token).toBeDefined();
 
       // Verify password was changed
-      const updatedUser = await User.findOne({ email: user.email });
-      const isPasswordCorrect = await updatedUser?.correctPassword(
+      const updatedUser = await User.findById(user._id).select('+password');
+      const isPasswordValid = await updatedUser?.correctPassword(
         'newpassword123',
         updatedUser.password
       );
-      expect(isPasswordCorrect).toBe(true);
+      expect(isPasswordValid).toBe(true);
     });
 
     it('should not update password with wrong current password', async () => {
       const user = await createTestUser();
-      const token = await getAuthToken(user);
+      const token = AuthService.signToken(user._id.toString());
 
       await request(app)
         .patch('/api/v1/users/updateMyPassword')
-        .set('Authorization', token)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           currentPassword: 'wrongpassword',
           password: 'newpassword123',

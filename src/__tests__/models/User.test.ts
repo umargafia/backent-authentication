@@ -68,8 +68,7 @@ describe('User Model', () => {
   it('should create password reset token', async () => {
     const user = await createTestUser();
     const resetToken = user.createPasswordResetToken();
-    user.passwordConfirm = 'password123'; // Add passwordConfirm to prevent validation error
-    await user.save();
+    await user.save({ validateBeforeSave: false }); // Skip validation when saving
 
     expect(resetToken).toBeDefined();
     expect(user.passwordResetToken).toBeDefined();
@@ -92,13 +91,24 @@ describe('User Model', () => {
     // Password not changed
     expect(user.changedPasswordAfter(tokenIssuedAt)).toBe(false);
 
+    // Wait a bit to ensure timestamp is different
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     // Change password
     user.password = 'newpassword123';
     user.passwordConfirm = 'newpassword123';
     await user.save();
 
+    // Wait a bit to ensure timestamp is different
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
     // Password changed
-    const updatedUser = await User.findById(user._id);
+    const updatedUser = await User.findById(user._id).select('+passwordChangedAt');
+    const changedTimestamp = updatedUser?.passwordChangedAt
+      ? Math.floor(updatedUser.passwordChangedAt.getTime() / 1000)
+      : 0;
+
+    expect(changedTimestamp).toBeGreaterThan(tokenIssuedAt);
     expect(updatedUser?.changedPasswordAfter(tokenIssuedAt)).toBe(true);
   });
 });

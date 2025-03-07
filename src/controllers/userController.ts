@@ -91,11 +91,17 @@ export const updateMe = catchAsync(async (req: Request, res: Response, next: Nex
 });
 
 export const deleteMe = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-  await User.findByIdAndUpdate(req.user.id, { active: false });
+  const user = await User.findByIdAndUpdate(
+    req.user.id,
+    { active: false },
+    { new: true, select: '+active' }
+  );
 
-  res.status(204).json({
+  res.status(200).json({
     status: 'success',
-    data: null,
+    data: {
+      user,
+    },
   });
 });
 
