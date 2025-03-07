@@ -3,13 +3,8 @@ import { User } from '../models/User';
 import { AuthService } from '../services/authService';
 import { AppError } from '../utils/AppError';
 import crypto from 'crypto';
-import { env } from '../config/env';
 
-export const signup = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const signup = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const newUser = await User.create({
       name: req.body.name,
@@ -24,11 +19,7 @@ export const signup = async (
   }
 };
 
-export const login = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
 
@@ -51,25 +42,16 @@ export const login = async (
   }
 };
 
-export const protect = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const protect = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 1) Getting token and check if it exists
     let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
     }
 
     if (!token) {
-      return next(
-        new AppError('You are not logged in! Please log in to get access.', 401)
-      );
+      return next(new AppError('You are not logged in! Please log in to get access.', 401));
     }
 
     // 2) Verification token
@@ -78,19 +60,12 @@ export const protect = async (
     // 3) Check if user still exists
     const currentUser = await User.findById(decoded.id);
     if (!currentUser) {
-      return next(
-        new AppError('The user belonging to this token no longer exists.', 401)
-      );
+      return next(new AppError('The user belonging to this token no longer exists.', 401));
     }
 
     // 4) Check if user changed password after the token was issued
     if (currentUser.changedPasswordAfter(decoded.iat)) {
-      return next(
-        new AppError(
-          'User recently changed password! Please log in again.',
-          401
-        )
-      );
+      return next(new AppError('User recently changed password! Please log in again.', 401));
     }
 
     // GRANT ACCESS TO PROTECTED ROUTE
@@ -105,26 +80,18 @@ export const restrictTo = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     // roles is an array ['admin', 'lead-guide']
     if (!roles.includes(req.user.role)) {
-      return next(
-        new AppError('You do not have permission to perform this action', 403)
-      );
+      return next(new AppError('You do not have permission to perform this action', 403));
     }
     next();
   };
 };
 
-export const forgotPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 1) Get user based on POSTed email
     const user = await User.findOne({ email: req.body.email });
     if (!user) {
-      return next(
-        new AppError('There is no user with that email address.', 404)
-      );
+      return next(new AppError('There is no user with that email address.', 404));
     }
 
     // 2) Generate the random reset token
@@ -154,29 +121,17 @@ export const forgotPassword = async (
       user.passwordResetExpires = undefined;
       await user.save({ validateBeforeSave: false });
 
-      return next(
-        new AppError(
-          'There was an error sending the email. Try again later!',
-          500
-        )
-      );
+      return next(new AppError('There was an error sending the email. Try again later!', 500));
     }
   } catch (error) {
     next(error);
   }
 };
 
-export const resetPassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 1) Get user based on the token
-    const hashedToken = crypto
-      .createHash('sha256')
-      .update(req.params.token)
-      .digest('hex');
+    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
 
     const user = await User.findOne({
       passwordResetToken: hashedToken,
@@ -202,11 +157,7 @@ export const resetPassword = async (
   }
 };
 
-export const updatePassword = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const updatePassword = async (req: Request, res: Response, next: NextFunction) => {
   try {
     // 1) Get user from collection
     const user = await User.findById(req.user.id).select('+password');
@@ -215,9 +166,7 @@ export const updatePassword = async (
     }
 
     // 2) Check if POSTed current password is correct
-    if (
-      !(await user.correctPassword(req.body.currentPassword, user.password))
-    ) {
+    if (!(await user.correctPassword(req.body.currentPassword, user.password))) {
       return next(new AppError('Your current password is wrong.', 401));
     }
 

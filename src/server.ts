@@ -11,12 +11,7 @@ process.on('uncaughtException', (err) => {
 
 // Connect to MongoDB with reduced logging
 mongoose
-  .connect(env.DATABASE_URL, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-    family: 4,
-  })
+  .connect(env.DATABASE_URL)
   .then(() => {
     console.log('✅ Database connected successfully');
   })
