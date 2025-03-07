@@ -68,6 +68,7 @@ describe('User Model', () => {
   it('should create password reset token', async () => {
     const user = await createTestUser();
     const resetToken = user.createPasswordResetToken();
+    user.passwordConfirm = 'password123'; // Add passwordConfirm to prevent validation error
     await user.save();
 
     expect(resetToken).toBeDefined();
@@ -97,6 +98,7 @@ describe('User Model', () => {
     await user.save();
 
     // Password changed
-    expect(user.changedPasswordAfter(tokenIssuedAt)).toBe(true);
+    const updatedUser = await User.findById(user._id);
+    expect(updatedUser?.changedPasswordAfter(tokenIssuedAt)).toBe(true);
   });
 });

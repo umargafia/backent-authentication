@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
@@ -59,7 +59,7 @@ app.use(
 app.use(express.static(`${__dirname}/public`));
 
 // Test middleware
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   req.requestTime = new Date().toISOString();
   next();
 });
@@ -68,10 +68,11 @@ app.use((req, res, next) => {
 app.use('/api/v1/users', userRouter);
 
 // 4) ERROR HANDLING
-app.all('*', (req, res, next) => {
+app.all('*', (req: Request, res: Response, next: NextFunction) => {
   next(new Error(`Can't find ${req.originalUrl} on this server!`));
 });
 
-app.use(errorHandler);
+// Error handling middleware
+app.use(errorHandler as ErrorRequestHandler);
 
 export default app;

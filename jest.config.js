@@ -11,4 +11,6 @@ module.exports = {
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coveragePathIgnorePatterns: ['/node_modules/'],
+  testTimeout: 60000,
+  maxWorkers: 1,
 };

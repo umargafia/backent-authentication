@@ -1,4 +1,4 @@
-import { Schema, model, Document, Model } from 'mongoose';
+import { Schema, model, Document, Model, Query, QueryWithHelpers } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import validator from 'validator';
@@ -90,7 +90,7 @@ userSchema.pre('save', function (next) {
 });
 
 // Only find active users
-userSchema.pre(/^find/, function (next) {
+userSchema.pre(/^find/, function (this: QueryWithHelpers<IUser[], IUser>, next) {
   this.find({ active: { $ne: false } });
   next();
 });

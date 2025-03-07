@@ -3,31 +3,51 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { env } from '../config/env';
 import { User } from '../models/User';
 
-let mongoServer: MongoMemoryServer;
+let mongoServer: MongoMemoryServer | null = null;
 
 beforeAll(async () => {
-  // Create an in-memory MongoDB instance
-  mongoServer = await MongoMemoryServer.create();
-  const mongoUri = mongoServer.getUri();
+  try {
+    // Create an in-memory MongoDB instance
+    mongoServer = await MongoMemoryServer.create({
+      instance: {
+        dbName: 'jest',
+      },
+    });
+    const mongoUri = mongoServer.getUri();
 
-  // Connect to the in-memory database
-  await mongoose.connect(mongoUri);
-});
+    // Connect to the in-memory database
+    await mongoose.connect(mongoUri);
+  } catch (error) {
+    console.error('Error setting up test database:', error);
+    throw error;
+  }
+}, 60000); // Increase timeout to 60 seconds
 
 afterAll(async () => {
-  await mongoose.disconnect();
-  await mongoServer.stop();
+  try {
+    await mongoose.disconnect();
+    if (mongoServer) {
+      await mongoServer.stop();
+    }
+  } catch (error) {
+    console.error('Error cleaning up test database:', error);
+  }
 });
 
 beforeEach(async () => {
-  // Clear all collections before each test
-  if (!mongoose.connection.db) {
-    throw new Error('Database connection not established');
-  }
+  try {
+    // Clear all collections before each test
+    if (!mongoose.connection.db) {
+      throw new Error('Database connection not established');
+    }
 
-  const collections = await mongoose.connection.db.collections();
-  for (const collection of collections) {
-    await collection.deleteMany({});
+    const collections = await mongoose.connection.db.collections();
+    for (const collection of collections) {
+      await collection.deleteMany({});
+    }
+  } catch (error) {
+    console.error('Error clearing test collections:', error);
+    throw error;
   }
 });
 
